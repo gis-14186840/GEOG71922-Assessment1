@@ -199,3 +199,14 @@ for (i in 1:folds) {
 #print results
 paste("GLM 5-Fold Mean AUC:",mean(auc_glm))
 paste("Maxnet 5-Fold Mean AUC:",mean(auc_max))
+
+# 7.Prediction and mapping
+
+#predict and inspect the output
+map_glm=predict(allEnv,glm_model,type="response",na.rm=TRUE)
+map_maxnet=predict(allEnv, maxnet_mod,type="cloglog",clamp=FALSE,na.rm=TRUE)
+
+#make comparison plot
+par(mfrow=c(1, 2))
+plot(map_glm,main="GLM prediction")
+plot(map_maxnet,main="Maxnet prediction")
