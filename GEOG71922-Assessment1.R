@@ -138,4 +138,18 @@ all.cov=na.omit(all.cov)
 all.cov=st_drop_geometry(all.cov)
 
 #test result
-print(all.cov)
+#print(all.cov)
+
+# 5.Model fitting: GLM vs Maxnet
+
+#build the binomal glm model
+glm_model=glm(Pres~broadleaf+urban,binomial(link='logit'),
+              data=all.cov)
+
+#build the maxnet model
+env_data=all.cov[,c("broadleaf","urban")]
+maxnet_mod=maxnet(p=all.cov$Pres,data=env_data,classes="lq")
+
+#test result
+print(glm_model)
+print(maxnet_mod)
