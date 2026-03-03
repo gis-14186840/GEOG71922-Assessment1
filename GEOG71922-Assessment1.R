@@ -151,5 +151,51 @@ env_data=all.cov[,c("broadleaf","urban")]
 maxnet_mod=maxnet(p=all.cov$Pres,data=env_data,classes="lq")
 
 #test result
-print(glm_model)
-print(maxnet_mod)
+#print(glm_model)
+#print(maxnet_mod)
+
+# 6.Test (evaluate) the model
+
+#set number of folds to use
+folds=5
+
+#partiction presence and absence data according to folds using the kfold() function
+kfold_pres<-kfold(all.cov[all.cov$Pres==1,],folds)
+kfold_back<-kfold(all.cov[all.cov$Pres==0,],folds)
+
+#create empty numeric vector to hold results
+auc_glm<-numeric(folds)
+auc_max<-numeric(folds)
+
+#for loop to iterate over folds
+for (i in 1:folds) {
+  #for presence values, select all folds which are not 'i' to train the model
+  #bind presence and background training data together
+  datatrain<-rbind(all.cov[all.cov$Pres==1,][kfold_pres!=i, ], 
+                   all.cov[all.cov$Pres==0,][kfold_back!=i,])
+  
+  #the remaining fold is used to test the model
+  test_pres<-all.cov[all.cov$Pres==1,][kfold_pres==i,]
+  test_back<-all.cov[all.cov$Pres==0,][kfold_back==i,]
+  
+  #bind test data together
+  datatest<-rbind(test_pres,test_back)
+  
+  #glm model trained on presence and absence points
+  glm_cv<-glm(Pres~poly(broadleaf,2)+poly(urban,2),family=binomial,data=datatrain)
+  
+  #use testing data for model evaluation
+  eval_glm<-evaluate(p=test_pres,a=test_back,model=glm_cv)
+  auc_glm[i]<-eval_glm@auc
+  
+  #maxnet evaluation
+  max_cv<-maxnet(p=datatrain$Pres,data=datatrain[,c("broadleaf","urban")])
+  pred_max<-predict(max_cv, datatest[,c("broadleaf", "urban")],type ="cloglog")
+  
+  #precrec evaluate
+  eval_max<-evalmod(scores=pred_max,labels=datatest$Pres)
+  auc_max[i]<-precrec::auc(eval_max)$aucs[1]}
+
+#print results
+paste("GLM 5-Fold Mean AUC:",mean(auc_glm))
+paste("Maxnet 5-Fold Mean AUC:",mean(auc_max))
