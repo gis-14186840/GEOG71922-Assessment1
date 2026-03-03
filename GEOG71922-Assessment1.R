@@ -57,7 +57,37 @@ extent.new <- ext(x.min, x.max, y.min, y.max)
 #crop the LCM raster to the extent
 LCM_crop <- crop(LCM$LCMUK_1, extent.new)
 
-#test drawing
-plot(LCM)
-plot(melesFin,add=TRUE)
+# 3.Prepare covariates
 
+#access levels of the raster by treating them as categorical data
+LCM_factor<-as.factor(LCM_crop)
+lcm_classes<-levels(LCM_factor)[[1]][,1] 
+
+#create an vector object called reclass
+reclass_wood = ifelse(lcm_classes==1,1,0)
+
+#combine with the LCM categories into a matrix of old and new values
+RCmatrix=apply(cbind(lcm_classes, reclass_wood),2,as.numeric)
+
+#asssign new values to LCM with reclassification matrix
+broadleaf=classify(LCM_crop, RCmatrix)
+
+#create an vector object called reclass Urban which is zero for all classes except tghe two urban classes in the LCM
+urban=classify(LCM_crop, rbind(c(20,1), c(21,1)), others=0)
+
+#aggregate LCM raster
+broadleaf_agg=aggregate(broadleaf,fact=4,fun="modal")
+urban_agg=aggregate(urban,fact=4,fun="modal")
+
+#calculate the proportion of woodland within an 1800m circular neighborhood
+wood_1800=focal(broadleaf_agg,w=focalMat(broadleaf_agg,1800,"circle"),na.rm=TRUE)
+
+#calculate the proportion of urban areas within a 2300m circular neighborhood
+urban_2300=focal(urban_agg,w=focalMat(urban_agg,2300,"circle"),na.rm=TRUE)
+
+#stack the covariate layers together
+allEnv=c(wood_1800, urban_2300)
+names(allEnv)=c("broadleaf","urban")
+
+#temp check result
+print(allEnv)
