@@ -37,25 +37,20 @@ meles.sp=st_as_sf(meles.latlong, coords=c("x", "y"), crs="epsg:4326")
 
 # 2.Spatial cropping and projection
 
-#set the extent to something workable
-studyExtent<-ext(-4.2,-2.7,56.5,57.5) #list coordinates: min x, max x, min y, max y
+#set the extent to the study area
+scot=st_read('scotSamp.shp')
 
-#crop points to this area
-meles.sp.crop<-st_crop(meles.sp, st_bbox(studyExtent))
+#project squirrel data
+melesFin.sp=st_transform(meles.sp, crs(LCM))
 
-#set the points to the same projection as the LCM layer
-melesFin<-st_transform(meles.sp.crop,crs(LCM))
+#crop points to the study area
+melesFin=melesFin.sp[scot,]
 
-#crop the land cover data to the extent of the points data (plus 5km for buffers)
-melesCoords<-st_coordinates(melesFin)
-x.min <- min(melesCoords[,1]) - 5000
-x.max <- max(melesCoords[,1]) + 5000
-y.min <- min(melesCoords[,2]) - 5000
-y.max <- max(melesCoords[,2]) + 5000
-extent.new <- ext(x.min, x.max, y.min, y.max)
+#crop to the extent of the study area plus a little more
+LCM_crop=crop(LCM$LCMUK_1,st_buffer(scot,dist= 1000))
 
-#crop the LCM raster to the extent
-LCM_crop <- crop(LCM$LCMUK_1, extent.new)
+#mask the LCM to this boundary
+LCM_crop=mask(LCM_crop, scot)
 
 # 3.Prepare covariates
 
