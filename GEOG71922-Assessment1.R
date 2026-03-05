@@ -206,6 +206,8 @@ map_glm=predict(allEnv,glm_model,type="response",na.rm=TRUE)
 map_maxnet=predict(allEnv, maxnet_mod,type="cloglog",clamp=FALSE,na.rm=TRUE)
 
 #make comparison plot
-par(mfrow=c(1, 2))
-plot(map_glm,main="GLM prediction")
-plot(map_maxnet,main="Maxnet prediction")
+par(mfrow=c(2, 2))
+plot(map_glm,main="GLM Continuous Probability")
+plot(map_maxnet,main="Maxent Continuous Probability")
+plot(map_glm>mean(opt_glm),main=paste("GLM Binary(T>", round(thresh_glm,3),")"),col=c("lightgrey","darkgreen"))
+plot(map_maxnet>mean(opt_max),main=paste("Maxent Binary(T>",round(thresh_max,3),")"),col=c("lightgrey","darkgreen"))
