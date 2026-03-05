@@ -28,6 +28,9 @@ meles<-meles[!is.na(meles$Latitude),]
 #subset to cases with coordinate uncertainty less 1000 meters
 meles<-meles[meles$Coordinate.uncertainty_m <= 1000,]
 
+#remove unconfirmed observation records
+meles<-meles[meles$Identification.verification.status!="Unconfirmed",]
+
 #Make spatial points layer
 #create crs object
 meles.latlong=data.frame(x=meles$Longitude, y=meles$Latitude)
@@ -84,9 +87,6 @@ urban_2300=focal(urban_agg,w=focalMat(urban_agg,2300,"circle"),na.rm=TRUE)
 allEnv=c(wood_1800, urban_2300)
 names(allEnv)=c("broadleaf","urban")
 
-#temp check result
-#print(allEnv)
-
 # 4.Generate background seeds and dataset
 
 #create background points
@@ -138,16 +138,12 @@ all.cov=st_drop_geometry(all.cov)
 # 5.Model fitting: GLM vs Maxnet
 
 #build the binomal glm model
-glm_model=glm(Pres~broadleaf+urban,binomial(link='logit'),
+glm_model=glm(Pres~poly(broadleaf,2)+poly(urban,2),family=binomial(link='logit'),
               data=all.cov)
 
 #build the maxnet model
 env_data=all.cov[,c("broadleaf","urban")]
 maxnet_mod=maxnet(p=all.cov$Pres,data=env_data,classes="lq")
-
-#test result
-#print(glm_model)
-#print(maxnet_mod)
 
 # 6.Test (evaluate) the model
 
@@ -198,13 +194,13 @@ for (i in 1:folds) {
   eval_max<-evalmod(scores=pred_max,labels=datatest$Pres)
   auc_max[i]<-precrec::auc(eval_max)$aucs[1]
   
-  #create a data frame based on specificity (x) and sensitivity (y)
-  fpr<-eval_max$rocs[[1]][1]$x
-  tpr<-eval_max$rocs[[1]][2]$y
+  #use dismo::evaluate to predict threshold
+  pred_max.p<-as.numeric(predict(max_cv, test_pres[,c("broadleaf", "urban")],type ="cloglog"))
+  pred_max.a<-as.numeric(predict(max_cv, test_back[,c("broadleaf", "urban")],type ="cloglog"))
+  eval_max_dismo<-evaluate(p=pred_max.p, a=pred_max.a)
   
-  #extra the max threshold
-  threshold<-seq(0,1,length=length(fpr))
-  opt_max[i]<-threshold[which.max((1-fpr)+tpr)] }
+  #extract the max threshold
+  opt_max[i]<-eval_max_dismo@t[which.max(eval_max_dismo@TPR+ eval_max_dismo@TNR)] }
 
 #print results
 print(paste("GLM 5-Fold Mean AUC:",mean(auc_glm)))
