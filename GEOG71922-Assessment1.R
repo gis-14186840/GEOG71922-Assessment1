@@ -161,6 +161,8 @@ kfold_back<-kfold(all.cov[all.cov$Pres==0,],folds)
 #create empty numeric vector to hold results
 auc_glm<-numeric(folds)
 auc_max<-numeric(folds)
+opt_glm<-numeric(folds) 
+opt_max<-numeric(folds)
 
 #for loop to iterate over folds
 for (i in 1:folds) {
@@ -180,8 +182,13 @@ for (i in 1:folds) {
   glm_cv<-glm(Pres~poly(broadleaf,2)+poly(urban,2),family=binomial,data=datatrain)
   
   #use testing data for model evaluation
-  eval_glm<-evaluate(p=test_pres,a=test_back,model=glm_cv)
+  pred_glm.p<-predict(glm_cv,test_pres,type= "response")
+  pred_glm.a<-predict(glm_cv,test_back,type="response")
+  eval_glm<-evaluate(p=pred_glm.p,a=pred_glm.a)
   auc_glm[i]<-eval_glm@auc
+  
+  #list and select corresponding values for TPR(true positive rate)and TNR(true negative rate)are highest
+  opt_glm[i]<-eval_glm@t[which.max(eval_glm@TPR +eval_glm@TNR)]
   
   #maxnet evaluation
   max_cv<-maxnet(p=datatrain$Pres,data=datatrain[,c("broadleaf","urban")])
@@ -189,11 +196,21 @@ for (i in 1:folds) {
   
   #precrec evaluate
   eval_max<-evalmod(scores=pred_max,labels=datatest$Pres)
-  auc_max[i]<-precrec::auc(eval_max)$aucs[1]}
+  auc_max[i]<-precrec::auc(eval_max)$aucs[1]
+  
+  #create a data frame based on specificity (x) and sensitivity (y)
+  fpr<-eval_max$rocs[[1]][1]$x
+  tpr<-eval_max$rocs[[1]][2]$y
+  
+  #extra the max threshold
+  threshold<-seq(0,1,length=length(fpr))
+  opt_max[i]<-threshold[which.max((1-fpr)+tpr)] }
 
 #print results
-paste("GLM 5-Fold Mean AUC:",mean(auc_glm))
-paste("Maxnet 5-Fold Mean AUC:",mean(auc_max))
+print(paste("GLM 5-Fold Mean AUC:",mean(auc_glm)))
+print(paste("Maxnet 5-Fold Mean AUC:",mean(auc_max)))
+print(paste("GLM Optimal Threshold:",mean(opt_glm)))
+print(paste("Maxnet Optimal Threshold:",mean(opt_max)))
 
 # 7.Prediction and mapping
 
