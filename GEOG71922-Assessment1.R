@@ -10,9 +10,7 @@ setwd('E:/Manchester/S2GEOG71922_SE/Assessment1/Code/GEOG71922-Assessment1')
 library(terra)
 library(sf)  #terra and sf handling spatial data
 library(dismo)  #dismo for downloading species data and evaluating models
-library(glmnet)
 library(maxnet)  #glmnet and maxnet for running Maxent models
-library(precrec)  #precrec for model evaluation
 library(dplyr)  #dplyr for data manipulation
 
 #load in the land cover map
@@ -171,9 +169,6 @@ for (i in 1:folds) {
   test_pres<-all.cov[all.cov$Pres==1,][kfold_pres==i,]
   test_back<-all.cov[all.cov$Pres==0,][kfold_back==i,]
   
-  #bind test data together
-  datatest<-rbind(test_pres,test_back)
-  
   #glm model trained on presence and absence points
   glm_cv<-glm(Pres~poly(broadleaf,2)+poly(urban,2),family=binomial,data=datatrain)
   
@@ -188,18 +183,14 @@ for (i in 1:folds) {
   
   #maxnet evaluation
   max_cv<-maxnet(p=datatrain$Pres,data=datatrain[,c("broadleaf","urban")])
-  pred_max<-predict(max_cv, datatest[,c("broadleaf", "urban")],type ="cloglog")
-  
-  #precrec evaluate
-  eval_max<-evalmod(scores=pred_max,labels=datatest$Pres)
-  auc_max[i]<-precrec::auc(eval_max)$aucs[1]
-  
-  #use dismo::evaluate to predict threshold
+
+  #use dismo::evaluate to predict AUC and threshold
   pred_max.p<-as.numeric(predict(max_cv, test_pres[,c("broadleaf", "urban")],type ="cloglog"))
   pred_max.a<-as.numeric(predict(max_cv, test_back[,c("broadleaf", "urban")],type ="cloglog"))
   eval_max_dismo<-evaluate(p=pred_max.p, a=pred_max.a)
   
-  #extract the max threshold
+  #extract the AUC and max threshold
+  auc_max[i]<-eval_max_dismo@auc
   opt_max[i]<-eval_max_dismo@t[which.max(eval_max_dismo@TPR+ eval_max_dismo@TNR)] }
 
 #print results
