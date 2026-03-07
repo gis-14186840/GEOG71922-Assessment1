@@ -201,6 +201,23 @@ print(paste("Maxnet Optimal Threshold:",mean(opt_max)))
 
 # 7.Prediction and mapping
 
+#set plotting scheme
+par(mfrow=c(1, 1))
+
+#Plot the study area and basemap (1800m broadleaf woodland proportion)
+plot(wood_1800, main="Study Area & Occurrence Data", 
+     col=terrain.colors(100), axes=TRUE)
+
+#add the 2000 generated background points. "pch" sets the symbol type and "cex" sites the size
+plot(st_geometry(back_sf), col="grey", pch=20, cex=0.3, add=TRUE)
+
+#Do the same for Eurasian badger presence records
+plot(st_geometry(melesFin), col="red", pch=4, cex=0.8, lwd=1.5, add=TRUE)
+
+#add legend
+legend("bottomright", legend=c("Presence (M. meles)", "Background (Pseudo-absences).)"), 
+       col=c("red", "grey"), pch=c(4, 20), pt.cex=c(0.8, 0.5), bg="white", cex=0.7)
+
 #predict and inspect the output
 map_glm=predict(allEnv,glm_model,type="response",na.rm=TRUE)
 map_maxnet=predict(allEnv, maxnet_mod,type="cloglog",clamp=FALSE,na.rm=TRUE)
