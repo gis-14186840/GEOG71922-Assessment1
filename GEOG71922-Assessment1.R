@@ -218,6 +218,26 @@ plot(st_geometry(melesFin), col="red", pch=4, cex=0.8, lwd=1.5, add=TRUE)
 legend("bottomright", legend=c("Presence (M. meles)", "Background (Pseudo-absences).)"), 
        col=c("red", "grey"), pch=c(4, 20), pt.cex=c(0.8, 0.5), bg="white", cex=0.7)
 
+#generate model response curves
+#restore 1 row, 2 column plot layout
+par(mfrow=c(1, 2))
+
+#plot the response curve for Broadleaf woodland
+wood_seq=seq(min(all.cov$broadleaf),max(all.cov$broadleaf),length.out=100)
+test_data_wood=data.frame(broadleaf=wood_seq,urban=median(all.cov$urban))
+pred_wood=predict(glm_model,newdata=test_data_wood,type="response")
+plot(wood_seq,pred_wood,type="l",col="green",lwd=2,
+     xlab="Broadleaf Woodland (1800m proportion)",ylab="Probability of Occurrence",
+     main="Response to Woodland")
+
+#plot the response curve for Urban density
+urban_seq=seq(min(all.cov$urban),max(all.cov$urban),length.out=100)
+test_data_urban=data.frame(broadleaf=median(all.cov$broadleaf),urban=urban_seq)
+pred_urban=predict(glm_model, newdata=test_data_urban,type="response")
+plot(urban_seq,pred_urban,type="l",col="red",lwd=2,
+     xlab="Urban Density (2300m proportion)",ylab="Probability of Occurrence",
+     main="Response to Urbanization")
+
 #predict and inspect the output
 map_glm=predict(allEnv,glm_model,type="response",na.rm=TRUE)
 map_maxnet=predict(allEnv, maxnet_mod,type="cloglog",clamp=FALSE,na.rm=TRUE)
