@@ -19,22 +19,13 @@ LCM=rast("LCMUK.tif")
 #load in the Eurasian badger (Meles meles) data
 meles=read.csv("Melesmeles.csv")
 
-#Data cleaning
-#subset the data to only include points with complete coordinates
-meles<-meles[!is.na(meles$Latitude),]
+#data cleaning: filter complete coordinates, high precision, confirmed records
+meles<-subset(meles,!is.na(meles$Latitude)&
+                    Coordinate.uncertainty_m<=1000&
+                    Identification.verification.status!="Unconfirmed")
 
-#subset to cases with coordinate uncertainty less 1000 meters
-meles<-meles[meles$Coordinate.uncertainty_m <= 1000,]
-
-#remove unconfirmed observation records
-meles<-meles[meles$Identification.verification.status!="Unconfirmed",]
-
-#Make spatial points layer
-#create crs object
-meles.latlong=data.frame(x=meles$Longitude, y=meles$Latitude)
-
-#use coordinates object to create our spatial points object
-meles.sp=st_as_sf(meles.latlong, coords=c("x", "y"), crs="epsg:4326")
+#create spatial points object using WGS84
+meles.sp=st_as_sf(meles,coords=c("Longitude","Latitude"),crs="epsg:4326")
 
 # 2.Spatial cropping and projection
 
@@ -55,21 +46,11 @@ LCM_crop=mask(LCM_crop, scot)
 
 # 3.Prepare covariates
 
-#access levels of the raster by treating them as categorical data
-LCM_factor<-as.factor(LCM_crop)
-lcm_classes<-levels(LCM_factor)[[1]][,1] 
-
-#create an vector object called reclass
-reclass_wood = ifelse(lcm_classes==1,1,0)
-
-#combine with the LCM categories into a matrix of old and new values
-RCmatrix=apply(cbind(lcm_classes, reclass_wood),2,as.numeric)
-
 #asssign new values to LCM with reclassification matrix
-broadleaf=classify(LCM_crop, RCmatrix)
+broadleaf=classify(LCM_crop,matrix(c(1,1),ncol=2),others=0)
 
 #create an vector object called reclass Urban which is zero for all classes except tghe two urban classes in the LCM
-urban=classify(LCM_crop, rbind(c(20,1), c(21,1)), others=0)
+urban=classify(LCM_crop,matrix(c(20,1,21,1),ncol=2,byrow=TRUE),others=0)
 
 #aggregate LCM raster
 broadleaf_agg=aggregate(broadleaf,fact=4,fun="modal")
@@ -90,48 +71,20 @@ names(allEnv)=c("broadleaf","urban")
 #create background points
 set.seed(11)
 
-#sample background - one point for every cell (9775)
-back = spatSample(allEnv,size=2000,as.points=TRUE,method="random",na.rm=TRUE) 
-back=back[!is.na(back$broadleaf),]
-back=st_as_sf(back,crs="EPSG:27700")
+#sample background points
+back=spatSample(allEnv,size=2000,xy=TRUE,method="random",na.rm=TRUE) 
+back$Pres=0
 
-#get environmental covariates at presence locations
-eP=terra::extract(allEnv, vect(melesFin))
+#extract coordinate and environmental covariate values
+pres_coords=st_coordinates(melesFin)
+eP=terra::extract(allEnv,pres_coords)
 
-#bind together the presence data
-Pres.cov=st_as_sf(cbind(eP,melesFin))
-Pres.cov$Pres=1
+#combine the extracted data into dataframe
+pres=data.frame(x=pres_coords[,1],y=pres_coords[,2], 
+                  broadleaf=eP$broadleaf,urban=eP$urban,Pres=1)
 
-#Remove the first column which is just an ID field.
-Pres.cov=Pres.cov[,-1]
-
-#get coordinates for spatial cross-validation later
-coordsPres=st_coordinates(Pres.cov)
-
-#drop geometry column
-Back.cov=st_as_sf(data.frame(back,Pres=0))
-
-#get coordinates of background points for cross validation later
-coordsBack=st_coordinates(back)
-
-#combine
-coords=data.frame(rbind(coordsPres,coordsBack))
-
-#assign coumn names
-colnames(coords)=c("x","y")
-
-#combine pres and background
-all.cov=rbind(Pres.cov,Back.cov)
-
-#add coordinates
-all.cov=cbind(all.cov,coords)
-
-#remove any NAs
-all.cov=na.omit(all.cov)
-all.cov=st_drop_geometry(all.cov)
-
-#test result
-#print(all.cov)
+#combine presence and background into dataframe
+all.cov=na.omit(rbind(pres,back))
 
 # 5.Model fitting: GLM vs Maxnet
 
@@ -219,7 +172,7 @@ legend("bottomright", legend=c("Presence (M. meles)", "Background (Pseudo-absenc
        col=c("red", "grey"), pch=c(4, 20), pt.cex=c(0.8, 0.5), bg="white", cex=0.7)
 
 #generate model response curves
-#restore 1 row, 2 column plot layout
+#restore 1row, 2column plot layout
 par(mfrow=c(1, 2))
 
 #plot the response curve for Broadleaf woodland
